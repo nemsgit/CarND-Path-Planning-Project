@@ -64,73 +64,29 @@ the path has processed since last time.
 
 A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
 
+
 ---
 
-## Dependencies
+## Reflections
 
-* cmake >= 3.5
- * All OSes: [click here for installation instructions](https://cmake.org/install/)
-* make >= 4.1
-  * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
-  * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
-* gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
-* [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
-  * If you install from source, checkout to commit `e94b6e1`, i.e.
-    ```
-    git clone https://github.com/uWebSockets/uWebSockets 
-    cd uWebSockets
-    git checkout e94b6e1
-    ```
+The implementation of the path planner involves three major tasks. The first step is to identify the target lane at the end of the path. In the case of a slow car in the front, the ego car should consider a lane change when safe and feasible. The second task is to set the target speed at the end of the new path. The ego car should drive as close to the speed limit as possible unless being blocked by other cars, which should then trigger a gradual deceleration to avoid collision. The third task is to generate a smooth trajectory based on the target lane and target speed, making sure the movement has acceptable acceleration and jerk. Now let's look into the details of each step:
 
-## Editor Settings
+####1. Determine Target Lane
+The target_lane variable is defined and initialized outside the loop in line 58. To help update its value in each communication cycle, we defined three boolean flags in the loop. "too_close" is raised when a front car is getting too close and lane changing needs to be considered; "left_lane_clear" and "right_lane_clear" signal the availability of the neighboring lanes.
 
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
+Starting from line 117 we loop through all cars in sensor fusion to identify cars that can potentially interfere with the ego car. We first read the position and velocity of each car and predict its future position at the end of the previous path (to be more precise, it's prev_size * TIME_STEP seconds later). We then compare the value with the future position of the ego car. If the car is in the same lane with the ego car and within 30m in the front, we raise the "too_close" flag. If the car is in a neighboring lane but within (-5m, +32m) in s coordinate relative to the ego car's future position, we set the corresponding "lane_clear" flags to false.
+ 
+ With the three flags we can then determine the target_lane (line 151), whether to shift right or left, or keep in the same lane.
+ 
+ ####2. Set Target Speed
+ If the front car is too slow and the neighboring lanes busy, we'll need to reduce the speed gradually until reaching the same speed of the front car (line 160).
+ 
+ If the lane is clear in front of us and the ego car is not running at the full speed, we'll need to gradually accelerate (line165).
+ 
+ ####3. Trajectory Generation
+ This part has pretty much followed Aaron Brown's lecture. There are three major steps:
+ 
+ First of all, we prepare a list of (4 in this case) points to fit a spline. The first two points are the last two points from the previous path, which ensures good continuity. The third and forth points are some distance away down the road, in the center of the target_lane. Before fitting the spline we transform all the points to the ego car's local coordinates to reduce computational complexity.
+ 
+ The second step is to determine how we partition the spline. We first look at some horizon distance (hori_x) ahead of us, where the ego car would end up at (hori_x, hori_y) in its local frame. The arc length can be approximated using the Euclidean distance of sqrt(hori_x^2 + hori_y^2)
+    

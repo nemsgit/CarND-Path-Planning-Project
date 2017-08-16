@@ -12,6 +12,18 @@
 
 using namespace std;
 
+// time interval of adjacent path points
+const double TIME_STEP = 0.02;
+
+// number of points in a new path
+const int PATH_LENGTH = 50;
+
+// converting from mph to m/s
+const double MILE2METER = 0.44704;
+
+// speed limit in mph
+const double SPEED_LIMIT = 50.0;
+
 // For converting back and forth between radians and degrees.
 double deg2rad(double x);
 double rad2deg(double x);
