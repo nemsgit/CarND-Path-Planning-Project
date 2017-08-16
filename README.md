@@ -88,5 +88,7 @@ Starting from line 117 we loop through all cars in sensor fusion to identify car
  
  First of all, we prepare a list of (4 in this case) points to fit a spline. The first two points are the last two points from the previous path, which ensures good continuity. The third and forth points are some distance away down the road, in the center of the target_lane. Before fitting the spline we transform all the points to the ego car's local coordinates to reduce computational complexity.
  
- The second step is to determine how we partition the spline. We first look at some horizon distance (hori_x) ahead of us, where the ego car would end up at (hori_x, hori_y) in its local frame. The arc length can be approximated using the Euclidean distance of sqrt(hori_x^2 + hori_y^2)
-    
+ The second step is to determine how we partition the spline. We first look at some horizon distance (hori_x) ahead of us, where the ego car would end up at (hori_x, hori_y) in its local frame. The arc length can be approximated using the Euclidean distance of sqrt(hori_x^2 + hori_y^2). This allows us to estimate how many segments we should make on hori_x to have the car move at the target speed. We then calculate the local coordinates of a series of points according to the segmentation and spline function, transform them to global coordinates, and add to the new path. 
+  
+####Future Improvements
+The above summarizes the implementation steps. The code provides basic functions of lane following, lane changing and collision avoidance. However, there's still large room for optimizations. For example, the implementation does not take into account sudden/abnormal state change of the neighboring cars, which could cause severe safety issues. The ego car only looks at neighboring lanes when considering a lane change, and cannot make smart selections among all three lanes. This reduces efficiency when the ego car can't figure out how to get out of a local "trap". 
